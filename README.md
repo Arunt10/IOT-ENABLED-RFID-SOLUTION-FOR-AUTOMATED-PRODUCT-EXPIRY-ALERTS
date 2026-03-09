@@ -1,1 +1,9 @@
 # IOT-ENABLED-RFID-SOLUTION-FOR-AUTOMATED-PRODUCT-EXPIRY-ALERTS
+
+Managing product expiry dates is a major challenge in modern supply chains, especially in industries such as retail, pharmaceuticals, and food storage where products have limited shelf life. Traditional inventory monitoring methods rely heavily on manual inspection, which is time-consuming, inefficient, and prone to human error. As warehouse operations scale and product turnover increases, these manual approaches often fail to provide timely alerts for items nearing or exceeding their expiry dates, leading to product wastage, financial losses, and potential safety risks.
+
+This project presents an IoT-enabled RFID-based inventory monitoring system designed to automate product expiry tracking. Each product is equipped with an RFID tag that stores relevant information such as identification and expiry date. RFID readers scan these tags and send the data to a cloud-based platform where the system continuously monitors product status in real time.
+
+To ensure accurate time tracking, the system uses Network Time Protocol (NTP) for real-time clock synchronization. The system automatically compares the current date with the stored expiry date of each product. When a product is approaching its expiry date or has already expired, the system generates automatic notifications that are sent to a mobile application used by inventory managers. This enables quick actions such as product removal, replacement, or restocking.
+
+By automating the monitoring process, the system reduces human dependency, improves operational efficiency, minimizes product wastage, and enhances consumer safety. The solution is scalable, cost-effective, and adaptable for various industries, contributing to a smarter and more efficient inventory management system.
