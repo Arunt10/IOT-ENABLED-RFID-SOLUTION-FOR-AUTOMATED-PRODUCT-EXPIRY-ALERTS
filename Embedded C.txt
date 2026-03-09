@@ -1,0 +1,71 @@
+//arawindj@gmail.com
+//arawind 09.
+//User Name: product_expiry
+//PW       : Projectiot@123
+#include <WiFi.h>
+#include <time.h>
+#include <LiquidCrystal.h>
+#include <map>
+#include <ArduinoIoTCloud.h>
+#include <Arduino_ConnectionHandler.h>
+
+// ========== IoT Cloud Credentials ==========
+const char DEVICE_LOGIN_NAME[]  = "2fff16d0-57a5-42a1-8e81-69b9e50fee93";
+const char DEVICE_KEY[]         = "ebaP9bH9U2Z?wy@G6nchvh3PL";    
+const char SSID[]               = "projectiot";    
+const char PASS[]               = "123456789xyz";    
+
+// ========== IoT Cloud Properties ==========
+String product;   // Holds Name + Expiry + Status
+bool valid;       // true = still valid, false = expired
+
+void onProductChange() {}
+void onValidChange() {}
+
+void initProperties() {
+  ArduinoCloud.setBoardId(DEVICE_LOGIN_NAME);
+  ArduinoCloud.setSecretDeviceKey(DEVICE_KEY);
+
+  ArduinoCloud.addProperty(product, READWRITE, ON_CHANGE, onProductChange);
+  ArduinoCloud.addProperty(valid,   READWRITE, ON_CHANGE, onValidChange);
+}
+WiFiConnectionHandler ArduinoIoTPreferredConnection(SSID, PASS);
+
+// ========== LCD Pins (RS, E, D4, D5, D6, D7) ==========
+LiquidCrystal lcd(2, 15, 19, 18, 5, 4);
+
+// ========== RFID via Serial2 ==========
+#define RXD2 16
+#define TXD2 17
+HardwareSerial RFIDSerial(2);
+
+// ========== Time (NTP) Settings ==========
+const long gmtOffset_sec = 19800;  // GMT+5:30 (IST)
+const int daylightOffset_sec = 0;
+struct tm timeinfo;
+
+// ========== Product Database ==========
+struct ProductInfo {
+  String name;
+  String expiry;  // Format: "YYYY-MM-DD"
+};
+
+std::map<String, ProductInfo> productDB = {
+  {"510054C6A665", {"Biscuit", "2025-09-20"}},
+  {"5100522488AF", {"Oil",     "2025-09-30"}},
+  {"51005403ADAB", {"Paste",   "2025-10-15"}}
+};
+
+// ========== Time Conversion ==========
+time_t convertToTimeT(String dateStr) {
+  struct tm tmStruct;
+  sscanf(dateStr.c_str(), "%d-%d-%d", &tmStruct.tm_year, &tmStruct.tm_mon, &tmStruct.tm_mday);
+  tmStruct.tm_year -= 1900;
+  tmStruct.tm_mon -= 1;
+  tmStruct.tm_hour = 0;
+  tmStruct.tm_min = 0;
+  tmStruct.tm_sec = 0;
+  tmStruct.tm_isdst = -1;
+  return mktime(&tmStruct);
+}
+

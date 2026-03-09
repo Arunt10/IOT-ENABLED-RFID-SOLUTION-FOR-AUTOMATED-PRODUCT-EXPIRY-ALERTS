@@ -1,0 +1,131 @@
+// ========== Display Management ==========
+unsigned long lastUpdate = 0;
+const unsigned long clockUpdateInterval = 1000;
+
+bool showingProductInfo = false;
+unsigned long productDisplayStart = 0;
+const unsigned long firstScreenDuration = 3000;  // ms
+const unsigned long secondScreenDuration = 3000; // ms
+int displayPhase = 0;  // 0 = none, 1 = product+expiry, 2 = status
+
+// Temporary storage
+String currentName = "";
+String currentExpiry = "";
+int currentDaysDiff = 0;
+
+// ========== Setup ==========
+void setup() {
+  Serial.begin(115200);
+  RFIDSerial.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  lcd.begin(16, 2);
+  lcd.print("Connecting WiFi");
+
+  WiFi.begin(SSID, PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+    Serial.print(".");
+  }
+
+  lcd.clear();
+  lcd.print("WiFi Connected");
+
+  // Start IoT Cloud
+  initProperties();
+  ArduinoCloud.begin(ArduinoIoTPreferredConnection);
+
+  configTime(gmtOffset_sec, daylightOffset_sec, "pool.ntp.org");
+  while (!getLocalTime(&timeinfo)) {
+    lcd.setCursor(0, 1);
+    lcd.print("Getting time...");
+    delay(500);
+  }
+
+  lcd.clear();
+}
+
+// ========== Clock Display ==========
+void displayIdleClock() {
+  if (getLocalTime(&timeinfo)) {
+    char buffer[20];
+    strftime(buffer, sizeof(buffer), "%d-%m-%Y", &timeinfo);
+    lcd.setCursor(0, 0);
+    lcd.print(buffer);
+    lcd.setCursor(0, 1);
+    lcd.print("Scan Product...  ");
+  }
+}
+
+// ========== Handle Product Display ==========
+void handleProductDisplay() {
+  unsigned long now = millis();
+
+  if (displayPhase == 1 && now - productDisplayStart >= firstScreenDuration) {
+    // --- Second screen: Status ---
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Status");
+
+    String statusMsg = "";
+    if (currentDaysDiff < 0) {
+      statusMsg = "Expired " + String(-currentDaysDiff) + "d ago";
+    } else if (currentDaysDiff == 0) {
+      statusMsg = "Expires Today";
+    } else {
+      statusMsg = String(currentDaysDiff) + " Days Left";
+    }
+
+    lcd.setCursor(0, 1);
+    lcd.print(statusMsg);
+
+    // === Build info for IoT Cloud ===
+    valid = (currentDaysDiff >= 0);
+    product = "Product: " + currentName + 
+              " | Exp: " + currentExpiry + 
+              " | Status: " + statusMsg;
+
+    displayPhase = 2;
+    productDisplayStart = now;
+  }
+  else if (displayPhase == 2 && now - productDisplayStart >= secondScreenDuration) {
+    // Back to clock
+    lcd.clear();
+    showingProductInfo = false;
+    displayPhase = 0;
+  }
+}
+
+// ========== Main Loop ==========
+void loop() {
+  ArduinoCloud.update();   // Sync with IoT Cloud
+
+  if (RFIDSerial.available()) {
+    showingProductInfo = true;
+    productDisplayStart = millis();
+    displayPhase = 1;
+
+    String tagID = "";
+    while (RFIDSerial.available()) {
+      char ch = RFIDSerial.read();
+      tagID += ch;
+      delay(5);  // Ensure full read
+    }
+    tagID.trim();
+    Serial.println("Scanned Tag: " + tagID);
+
+    if (productDB.find(tagID) != productDB.end()) {
+      ProductInfo productInfo = productDB[tagID];
+      currentName = productInfo.name;
+      currentExpiry = productInfo.expiry;
+
+      if (getLocalTime(&timeinfo)) {
+        struct tm currentDateOnly = timeinfo;
+        currentDateOnly.tm_hour = 0;
+        currentDateOnly.tm_min = 0;
+        currentDateOnly.tm_sec = 0;
+        time_t today = mktime(&currentDateOnly);
+
+        time_t expiry = convertToTimeT(currentExpiry);
+        currentDaysDiff = (expiry - today) / 86400;
+      } else {
+        currentDaysDiff = 0;
+      }

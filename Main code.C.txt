@@ -1,0 +1,85 @@
+// ========== Main Loop ==========
+void loop() {
+  ArduinoCloud.update();   // Sync with IoT Cloud
+
+  if (RFIDSerial.available()) {
+    showingProductInfo = true;
+    productDisplayStart = millis();
+    displayPhase = 1;
+
+    String tagID = "";
+    while (RFIDSerial.available()) {
+      char ch = RFIDSerial.read();
+      tagID += ch;
+      delay(5);  // Ensure full read
+    }
+    tagID.trim();
+    Serial.println("Scanned Tag: " + tagID);
+
+    if (productDB.find(tagID) != productDB.end()) {
+      ProductInfo productInfo = productDB[tagID];
+      currentName = productInfo.name;
+      currentExpiry = productInfo.expiry;
+
+      if (getLocalTime(&timeinfo)) {
+        struct tm currentDateOnly = timeinfo;
+        currentDateOnly.tm_hour = 0;
+        currentDateOnly.tm_min = 0;
+        currentDateOnly.tm_sec = 0;
+        time_t today = mktime(&currentDateOnly);
+
+        time_t expiry = convertToTimeT(currentExpiry);
+        currentDaysDiff = (expiry - today) / 86400;
+      } else {
+        currentDaysDiff = 0;
+      }
+
+      // --- First screen: Product + Expiry ---
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Product: ");
+      lcd.print(currentName);
+
+      // Format expiry into DD-MM-YY
+      String dd = currentExpiry.substring(8, 10);
+      String mm = currentExpiry.substring(5, 7);
+      String yy = currentExpiry.substring(2, 4);
+
+      lcd.setCursor(0, 1);
+      lcd.print("Ex Date:");
+      lcd.print(dd);
+      lcd.print("-");
+      lcd.print(mm);
+      lcd.print("-");
+      lcd.print(yy);
+
+    } else {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Unknown Product");
+      lcd.setCursor(0, 1);
+      lcd.print(tagID.substring(0, 12));
+
+      // === Send unknown product to IoT Cloud ===
+      product = "Product: Unknown | Exp: - | Status: Not Found";
+      valid = false;
+
+      displayPhase = 2;
+    }
+
+    return;
+  }
+
+  if (showingProductInfo) {
+    handleProductDisplay();
+  } else {
+    if (millis() - lastUpdate >= clockUpdateInterval) {
+      lastUpdate = millis();
+      displayIdleClock();
+    }
+  }
+
+  delay(50);
+}
+
+

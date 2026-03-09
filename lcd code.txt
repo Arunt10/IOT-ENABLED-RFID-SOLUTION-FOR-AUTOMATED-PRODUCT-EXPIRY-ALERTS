@@ -1,0 +1,47 @@
+// --- First screen: Product + Expiry ---
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Product: ");
+      lcd.print(currentName);
+
+      // Format expiry into DD-MM-YY
+      String dd = currentExpiry.substring(8, 10);
+      String mm = currentExpiry.substring(5, 7);
+      String yy = currentExpiry.substring(2, 4);
+
+      lcd.setCursor(0, 1);
+      lcd.print("Ex Date:");
+      lcd.print(dd);
+      lcd.print("-");
+      lcd.print(mm);
+      lcd.print("-");
+      lcd.print(yy);
+
+    } else {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Unknown Product");
+      lcd.setCursor(0, 1);
+      lcd.print(tagID.substring(0, 12));
+
+      // === Send unknown product to IoT Cloud ===
+      product = "Product: Unknown | Exp: - | Status: Not Found";
+      valid = false;
+
+      displayPhase = 2;
+    }
+
+    return;
+  }
+
+  if (showingProductInfo) {
+    handleProductDisplay();
+  } else {
+    if (millis() - lastUpdate >= clockUpdateInterval) {
+      lastUpdate = millis();
+      displayIdleClock();
+    }
+  }
+
+  delay(50);
+}
